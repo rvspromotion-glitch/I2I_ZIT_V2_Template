@@ -330,6 +330,33 @@ for dir in "${ZIT_REPO_DIR}"/*; do
   ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
 done
 
+# -----------------------------
+# Additional custom nodes repo (symlink into custom_nodes)
+# -----------------------------
+BATCHNODE_REPO_DIR="${REPO_CACHE}/BatchnodeI9"
+UPDATE_BATCHNODE="${UPDATE_BATCHNODE:-0}"
+
+if [ ! -d "${BATCHNODE_REPO_DIR}/.git" ]; then
+  echo "[nodes] cloning BatchnodeI9 into cache (one-time)..."
+  rm -rf "${BATCHNODE_REPO_DIR}"
+  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
+    "https://github.com/rvspromotion-glitch/BatchnodeI9.git" \
+    "${BATCHNODE_REPO_DIR}"
+elif [ "$UPDATE_BATCHNODE" = "1" ]; then
+  echo "[nodes] updating cached BatchnodeI9..."
+  git -C "${BATCHNODE_REPO_DIR}" pull --rebase || true
+else
+  echo "[nodes] using cached BatchnodeI9 (no pull)"
+fi
+
+echo "[nodes] creating symlinks for BatchnodeI9 in custom_nodes..."
+for dir in "${BATCHNODE_REPO_DIR}"/*; do
+  [ -d "$dir" ] || continue
+  node_name="$(basename "$dir")"
+  case "$node_name" in .git|.github|__pycache__) continue ;; esac
+  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
+done
+
 # Install node requirements once (constrained)
 INSTALL_NODE_REQS="${INSTALL_NODE_REQS:-1}"
 if [ "$INSTALL_NODE_REQS" = "1" ]; then

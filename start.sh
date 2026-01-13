@@ -357,6 +357,33 @@ for dir in "${BATCHNODE_REPO_DIR}"/*; do
   ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
 done
 
+# -----------------------------
+# Additional custom nodes repo Save as ZIP (symlink into custom_nodes)
+# -----------------------------
+SAVEZIP_REPO_DIR="${REPO_CACHE}/savezipi9"
+UPDATE_SAVEZIP="${UPDATE_SAVEZIP:-0}"
+
+if [ ! -d "${SAVEZIP_REPO_DIR}/.git" ]; then
+  echo "[nodes] cloning Save Image I9 into cache (one-time)..."
+  rm -rf "${SAVEZIP_REPO_DIR}"
+  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
+    "https://github.com/rvspromotion-glitch/savezipi9.git" \
+    "${SAVEZIP_REPO_DIR}"
+elif [ "$UPDATE_SAVEZIP" = "1" ]; then
+  echo "[nodes] updating cached Save Image I9..."
+  git -C "${SAVEZIP_REPO_DIR}" pull --rebase || true
+else
+  echo "[nodes] using cached Save Image I9 (no pull)"
+fi
+
+echo "[nodes] creating symlinks for Save Image I9 in custom_nodes..."
+for dir in "${SAVEZIP_REPO_DIR}"/*; do
+  [ -d "$dir" ] || continue
+  node_name="$(basename "$dir")"
+  case "$node_name" in .git|.github|__pycache__) continue ;; esac
+  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
+done
+
 # Install node requirements once (constrained)
 INSTALL_NODE_REQS="${INSTALL_NODE_REQS:-1}"
 if [ "$INSTALL_NODE_REQS" = "1" ]; then

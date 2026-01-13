@@ -156,7 +156,7 @@ civit_download() {
     -o "$out" "$url"
 
   # If we got HTML (login page), delete it so you dont think its a model
-  if file "$out" | grep -qi "HTML"; then
+  if command -v file >/dev/null 2>&1 && file "$out" | grep -qi "HTML"; then
     echo "[civitai] ERROR: got HTML instead of model (token missing/invalid/gated). Removing $out"
     rm -f "$out"
     return 1
@@ -201,7 +201,7 @@ env_lora_download() {
     -o "$out" "$url"
 
   # Detect HTML instead of a safetensors binary
-  if file "$out" | grep -qi "HTML"; then
+  if command -v file >/dev/null 2>&1 && file "$out" | grep -qi "HTML"; then
     echo "[lora] ERROR: got HTML instead of model (Dropbox auth/blocked). Removing $out"
     rm -f "$out"
     return 1
@@ -406,28 +406,23 @@ wait
 
 echo "[models] Downloads completed."
 
-# Install node requirements (parallel processing)
+# Install node requirements (SEQUENTIAL to avoid pip race conditions)
 INSTALL_NODE_REQS="${INSTALL_NODE_REQS:-1}"
 REQ_MARK="${PERSIST_DIR}/.node-reqs-installed"
 
 if [ "$INSTALL_NODE_REQS" = "1" ]; then
   if [ ! -f "$REQ_MARK" ] || [ "$UPDATE_NODES" = "1" ]; then
-    echo "[pip] Installing node requirements in parallel (constrained)..."
+    echo "[pip] Installing node requirements (constrained)..."
     
-    # Process all requirements in parallel
+    # Process all requirements sequentially to avoid pip corruption
     for dir in "${ZIT_REPO_DIR}"/*; do
       [ -d "$dir" ] || continue
       req="${dir}/requirements.txt"
       if [ -f "$req" ]; then
-        (
-          echo "  - [pip] $(basename "$dir")/requirements.txt"
-          safe_pip_install_req "$req"
-        ) &
+        echo "  - [pip] $(basename "$dir")/requirements.txt"
+        safe_pip_install_req "$req"
       fi
     done
-    
-    # Wait for all pip installs
-    wait
     
     touch "$REQ_MARK"
   else

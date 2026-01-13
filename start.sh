@@ -57,15 +57,36 @@ export PIP_CONSTRAINT="$CONSTRAINTS_FILE"
 echo "[pip] Enforcing constraints:"
 cat "$CONSTRAINTS_FILE"
 
-pip install -q --upgrade --prefer-binary \
-  -c "$CONSTRAINTS_FILE" \
-  "numpy<2" \
-  "protobuf<5" \
-  "transformers==4.39.3" \
-  "tokenizers==0.15.2" \
-  "safetensors" \
-  "mediapipe==0.10.14" \
-  "sageattention" || true
+# Only install if versions are wrong (skip if already correct)
+SKIP_PIP_INSTALL=0
+python3 - <<'PY' && SKIP_PIP_INSTALL=1 || true
+import sys
+try:
+    import numpy
+    import transformers
+    import mediapipe
+    assert numpy.__version__.startswith('1.')
+    assert transformers.__version__ == '4.39.3'
+    assert mediapipe.__version__ == '0.10.14'
+    sys.exit(0)
+except:
+    sys.exit(1)
+PY
+
+if [ "$SKIP_PIP_INSTALL" = "0" ]; then
+  echo "[pip] Installing/updating core dependencies..."
+  pip install -q --upgrade --prefer-binary \
+    -c "$CONSTRAINTS_FILE" \
+    "numpy<2" \
+    "protobuf<5" \
+    "transformers==4.39.3" \
+    "tokenizers==0.15.2" \
+    "safetensors" \
+    "mediapipe==0.10.14" \
+    "sageattention" || true
+else
+  echo "[pip] Core dependencies already correct, skipping install"
+fi
 
 echo "[debug] Versions:"
 python3 - <<'PY'
@@ -219,9 +240,128 @@ mkdir -p \
 chmod -R 777 "${MODELS_DIR}/loras" || true
 
 # -----------------------------
-# Model downloads (parallel batches)
+# Cache repos on persistent volume (DO THIS EARLY IN PARALLEL)
 # -----------------------------
-echo "[models] Downloading required models (parallel batches)..."
+REPO_CACHE="${PERSIST_DIR}/_repos"
+mkdir -p "$REPO_CACHE"
+
+ZIT_REPO_DIR="${REPO_CACHE}/IIIIIIII_ZIT_V3"
+ULTRA_REPO_DIR="${REPO_CACHE}/IIIIIIIII_ZIT_V3_Ultralytics"
+BATCHNODE_REPO_DIR="${REPO_CACHE}/BatchnodeI9"
+SAVEZIP_REPO_DIR="${REPO_CACHE}/savezipi9"
+
+UPDATE_NODES="${UPDATE_NODES:-0}"
+UPDATE_MODELS="${UPDATE_MODELS:-0}"
+UPDATE_BATCHNODE="${UPDATE_BATCHNODE:-0}"
+UPDATE_SAVEZIP="${UPDATE_SAVEZIP:-0}"
+
+# Clone/update all repos in parallel
+echo "[repos] Setting up Git repositories in parallel..."
+
+(
+  if [ ! -d "${ZIT_REPO_DIR}/.git" ]; then
+    echo "[nodes] cloning node pack into cache (one-time)..."
+    rm -rf "${ZIT_REPO_DIR}"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --shallow-submodules --recurse-submodules --progress \
+      "https://github.com/rvspromotion-glitch/IIIIIIII_ZIT_V3.git" \
+      "${ZIT_REPO_DIR}"
+    git -C "${ZIT_REPO_DIR}" submodule update --init --recursive --depth 1 || true
+  elif [ "$UPDATE_NODES" = "1" ]; then
+    echo "[nodes] updating cached node pack..."
+    git -C "${ZIT_REPO_DIR}" pull --rebase || true
+    git -C "${ZIT_REPO_DIR}" submodule update --init --recursive || true
+  else
+    echo "[nodes] using cached node pack (no pull)"
+  fi
+) &
+
+(
+  if [ ! -d "${ULTRA_REPO_DIR}/.git" ]; then
+    echo "[bbox] cloning ultralytics model repo (one-time)..."
+    rm -rf "${ULTRA_REPO_DIR}"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
+      "https://github.com/rvspromotion-glitch/IIIIIIIII_ZIT_V3_Ultralytics.git" \
+      "${ULTRA_REPO_DIR}"
+  elif [ "$UPDATE_MODELS" = "1" ]; then
+    echo "[bbox] updating ultralytics model repo..."
+    git -C "${ULTRA_REPO_DIR}" pull --rebase || true
+  else
+    echo "[bbox] using cached ultralytics model repo (no pull)"
+  fi
+) &
+
+(
+  if [ ! -d "${BATCHNODE_REPO_DIR}/.git" ]; then
+    echo "[nodes] cloning BatchnodeI9 into cache (one-time)..."
+    rm -rf "${BATCHNODE_REPO_DIR}"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
+      "https://github.com/rvspromotion-glitch/BatchnodeI9.git" \
+      "${BATCHNODE_REPO_DIR}"
+  elif [ "$UPDATE_BATCHNODE" = "1" ]; then
+    echo "[nodes] updating cached BatchnodeI9..."
+    git -C "${BATCHNODE_REPO_DIR}" pull --rebase || true
+  else
+    echo "[nodes] using cached BatchnodeI9 (no pull)"
+  fi
+) &
+
+(
+  if [ ! -d "${SAVEZIP_REPO_DIR}/.git" ]; then
+    echo "[nodes] cloning Save Image I9 into cache (one-time)..."
+    rm -rf "${SAVEZIP_REPO_DIR}"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
+      "https://github.com/rvspromotion-glitch/savezipi9.git" \
+      "${SAVEZIP_REPO_DIR}"
+  elif [ "$UPDATE_SAVEZIP" = "1" ]; then
+    echo "[nodes] updating cached Save Image I9..."
+    git -C "${SAVEZIP_REPO_DIR}" pull --rebase || true
+  else
+    echo "[nodes] using cached Save Image I9 (no pull)"
+  fi
+) &
+
+# Wait for all repo operations
+wait
+
+echo "[repos] All repositories ready"
+
+# Create symlinks immediately after repos are ready
+echo "[nodes] creating symlinks in custom_nodes..."
+for dir in "${ZIT_REPO_DIR}"/*; do
+  [ -d "$dir" ] || continue
+  node_name="$(basename "$dir")"
+  case "$node_name" in .git|.github|__pycache__) continue ;; esac
+  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
+done
+
+for dir in "${BATCHNODE_REPO_DIR}"/*; do
+  [ -d "$dir" ] || continue
+  node_name="$(basename "$dir")"
+  case "$node_name" in .git|.github|__pycache__) continue ;; esac
+  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
+done
+
+for dir in "${SAVEZIP_REPO_DIR}"/*; do
+  [ -d "$dir" ] || continue
+  node_name="$(basename "$dir")"
+  case "$node_name" in .git|.github|__pycache__) continue ;; esac
+  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
+done
+
+# Sync bbox models
+BBOX_DIR="${MODELS_DIR}/ultralytics/bbox"
+BBOX_MARK="${PERSIST_DIR}/.bbox-models-copied"
+
+if [ ! -f "$BBOX_MARK" ] || [ "$UPDATE_MODELS" = "1" ]; then
+  echo "[bbox] syncing .pt files into ${BBOX_DIR}..."
+  find "${ULTRA_REPO_DIR}" -type f -name "*.pt" -exec cp -f {} "${BBOX_DIR}/" \; || true
+  touch "$BBOX_MARK"
+fi
+
+# -----------------------------
+# Model downloads (ALL IN PARALLEL - maximum speed)
+# -----------------------------
+echo "[models] Downloading required models (fully parallel)..."
 
 download "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth" \
   "${MODELS_DIR}/sams/sam_vit_b_01ec64.pth" &
@@ -232,7 +372,6 @@ download "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/d
   "${MODELS_DIR}/ultralytics/bbox/face_yolov8m.pt" &
 download "https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8m-seg.pt" \
   "${MODELS_DIR}/ultralytics/segm/person_yolov8m-seg.pt" &
-wait
 
 download "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt" \
   "${MODELS_DIR}/ultralytics/bbox/yolov8n.pt" &
@@ -247,7 +386,6 @@ download "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n
   "${MODELS_DIR}/ultralytics/segm/yolov8n-seg.pt" &
 download "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8m-seg.pt" \
   "${MODELS_DIR}/ultralytics/segm/yolov8m-seg.pt" &
-wait
 
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors" \
   "${MODELS_DIR}/diffusion_models/z_image_turbo_bf16.safetensors" &
@@ -255,148 +393,42 @@ download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_file
   "${MODELS_DIR}/vae/ae.safetensors" &
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors" \
   "${MODELS_DIR}/clip/qwen_3_4b.safetensors" &
-wait
 
 civit_download "https://civitai.com/api/download/models/1511445?type=Model&format=SafeTensor" \
   "${MODELS_DIR}/loras/1511445_Spread i5XL.safetensors" &
 civit_download "https://civitai.com/api/download/models/2435561?type=Model&format=SafeTensor&size=pruned&fp=fp16" \
   "${MODELS_DIR}/checkpoints/2435561_Photo4_fp16_pruned.safetensors" &
-wait
 
-# -----------------------------
-# Optional character LoRA via env var
-# -----------------------------
 env_lora_download "CHAR_LORA_URL" &
+
+# Wait for ALL downloads to complete
 wait
 
 echo "[models] Downloads completed."
 
-# -----------------------------
-# Cache repos on persistent volume
-# -----------------------------
-REPO_CACHE="${PERSIST_DIR}/_repos"
-mkdir -p "$REPO_CACHE"
-
-# Extra bbox models repo
-BBOX_DIR="${MODELS_DIR}/ultralytics/bbox"
-ULTRA_REPO_DIR="${REPO_CACHE}/IIIIIIIII_ZIT_V3_Ultralytics"
-UPDATE_MODELS="${UPDATE_MODELS:-0}"
-BBOX_MARK="${PERSIST_DIR}/.bbox-models-copied"
-
-if [ ! -d "${ULTRA_REPO_DIR}/.git" ]; then
-  echo "[bbox] cloning ultralytics model repo (one-time)..."
-  rm -rf "${ULTRA_REPO_DIR}"
-  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
-    "https://github.com/rvspromotion-glitch/IIIIIIIII_ZIT_V3_Ultralytics.git" \
-    "${ULTRA_REPO_DIR}"
-elif [ "$UPDATE_MODELS" = "1" ]; then
-  echo "[bbox] updating ultralytics model repo..."
-  git -C "${ULTRA_REPO_DIR}" pull --rebase || true
-else
-  echo "[bbox] using cached ultralytics model repo (no pull)"
-fi
-
-if [ ! -f "$BBOX_MARK" ] || [ "$UPDATE_MODELS" = "1" ]; then
-  echo "[bbox] syncing .pt files into ${BBOX_DIR}..."
-  find "${ULTRA_REPO_DIR}" -type f -name "*.pt" -exec cp -f {} "${BBOX_DIR}/" \; || true
-  touch "$BBOX_MARK"
-fi
-
-# Node pack repo (symlink into custom_nodes)
-ZIT_REPO_DIR="${REPO_CACHE}/IIIIIIII_ZIT_V3"
-UPDATE_NODES="${UPDATE_NODES:-0}"
+# Install node requirements (parallel processing)
+INSTALL_NODE_REQS="${INSTALL_NODE_REQS:-1}"
 REQ_MARK="${PERSIST_DIR}/.node-reqs-installed"
 
-if [ ! -d "${ZIT_REPO_DIR}/.git" ]; then
-  echo "[nodes] cloning node pack into cache (one-time)..."
-  rm -rf "${ZIT_REPO_DIR}"
-  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --shallow-submodules --recurse-submodules --progress \
-    "https://github.com/rvspromotion-glitch/IIIIIIII_ZIT_V3.git" \
-    "${ZIT_REPO_DIR}"
-  git -C "${ZIT_REPO_DIR}" submodule update --init --recursive --depth 1 || true
-elif [ "$UPDATE_NODES" = "1" ]; then
-  echo "[nodes] updating cached node pack..."
-  git -C "${ZIT_REPO_DIR}" pull --rebase || true
-  git -C "${ZIT_REPO_DIR}" submodule update --init --recursive || true
-else
-  echo "[nodes] using cached node pack (no pull)"
-fi
-
-echo "[nodes] creating symlinks in custom_nodes..."
-for dir in "${ZIT_REPO_DIR}"/*; do
-  [ -d "$dir" ] || continue
-  node_name="$(basename "$dir")"
-  case "$node_name" in .git|.github|__pycache__) continue ;; esac
-  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
-done
-
-# -----------------------------
-# Additional custom nodes repo (symlink into custom_nodes)
-# -----------------------------
-BATCHNODE_REPO_DIR="${REPO_CACHE}/BatchnodeI9"
-UPDATE_BATCHNODE="${UPDATE_BATCHNODE:-0}"
-
-if [ ! -d "${BATCHNODE_REPO_DIR}/.git" ]; then
-  echo "[nodes] cloning BatchnodeI9 into cache (one-time)..."
-  rm -rf "${BATCHNODE_REPO_DIR}"
-  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
-    "https://github.com/rvspromotion-glitch/BatchnodeI9.git" \
-    "${BATCHNODE_REPO_DIR}"
-elif [ "$UPDATE_BATCHNODE" = "1" ]; then
-  echo "[nodes] updating cached BatchnodeI9..."
-  git -C "${BATCHNODE_REPO_DIR}" pull --rebase || true
-else
-  echo "[nodes] using cached BatchnodeI9 (no pull)"
-fi
-
-echo "[nodes] creating symlinks for BatchnodeI9 in custom_nodes..."
-for dir in "${BATCHNODE_REPO_DIR}"/*; do
-  [ -d "$dir" ] || continue
-  node_name="$(basename "$dir")"
-  case "$node_name" in .git|.github|__pycache__) continue ;; esac
-  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
-done
-
-# -----------------------------
-# Additional custom nodes repo Save as ZIP (symlink into custom_nodes)
-# -----------------------------
-SAVEZIP_REPO_DIR="${REPO_CACHE}/savezipi9"
-UPDATE_SAVEZIP="${UPDATE_SAVEZIP:-0}"
-
-if [ ! -d "${SAVEZIP_REPO_DIR}/.git" ]; then
-  echo "[nodes] cloning Save Image I9 into cache (one-time)..."
-  rm -rf "${SAVEZIP_REPO_DIR}"
-  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
-    "https://github.com/rvspromotion-glitch/savezipi9.git" \
-    "${SAVEZIP_REPO_DIR}"
-elif [ "$UPDATE_SAVEZIP" = "1" ]; then
-  echo "[nodes] updating cached Save Image I9..."
-  git -C "${SAVEZIP_REPO_DIR}" pull --rebase || true
-else
-  echo "[nodes] using cached Save Image I9 (no pull)"
-fi
-
-echo "[nodes] creating symlinks for Save Image I9 in custom_nodes..."
-for dir in "${SAVEZIP_REPO_DIR}"/*; do
-  [ -d "$dir" ] || continue
-  node_name="$(basename "$dir")"
-  case "$node_name" in .git|.github|__pycache__) continue ;; esac
-  ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
-done
-
-# Install node requirements once (constrained)
-INSTALL_NODE_REQS="${INSTALL_NODE_REQS:-1}"
 if [ "$INSTALL_NODE_REQS" = "1" ]; then
   if [ ! -f "$REQ_MARK" ] || [ "$UPDATE_NODES" = "1" ]; then
-    echo "[pip] Installing node requirements (once, constrained)..."
+    echo "[pip] Installing node requirements in parallel (constrained)..."
+    
+    # Process all requirements in parallel
     for dir in "${ZIT_REPO_DIR}"/*; do
       [ -d "$dir" ] || continue
       req="${dir}/requirements.txt"
       if [ -f "$req" ]; then
-        echo "  - [pip] $(basename "$dir")/requirements.txt"
-        safe_pip_install_req "$req"
+        (
+          echo "  - [pip] $(basename "$dir")/requirements.txt"
+          safe_pip_install_req "$req"
+        ) &
       fi
     done
+    
+    # Wait for all pip installs
+    wait
+    
     touch "$REQ_MARK"
   else
     echo "[pip] Node requirements already installed (skip)"
@@ -407,7 +439,7 @@ fi
 pip install -q --upgrade --prefer-binary -c "$CONSTRAINTS_FILE" "numpy<2" "mediapipe==0.10.14" || true
 
 # -----------------------------
-# Start JupyterLab
+# Start JupyterLab in background
 # -----------------------------
 echo "[jupyter] Starting JupyterLab..."
 jupyter lab \

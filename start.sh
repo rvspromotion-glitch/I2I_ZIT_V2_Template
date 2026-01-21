@@ -45,8 +45,7 @@ CONSTRAINTS_FILE="${PERSIST_DIR}/pip-constraints.txt"
 cat > "$CONSTRAINTS_FILE" <<'EOF'
 numpy<2
 protobuf<5
-transformers==4.39.3
-tokenizers==0.15.2
+transformers>=4.45.0
 safetensors
 mediapipe==0.10.14
 sageattention
@@ -61,12 +60,13 @@ cat "$CONSTRAINTS_FILE"
 SKIP_PIP_INSTALL=0
 python3 - <<'PY' && SKIP_PIP_INSTALL=1 || true
 import sys
+from packaging import version
 try:
     import numpy
     import transformers
     import mediapipe
     assert numpy.__version__.startswith('1.')
-    assert transformers.__version__ == '4.39.3'
+    assert version.parse(transformers.__version__) >= version.parse('4.45.0')
     assert mediapipe.__version__ == '0.10.14'
     sys.exit(0)
 except:
@@ -79,8 +79,7 @@ if [ "$SKIP_PIP_INSTALL" = "0" ]; then
     -c "$CONSTRAINTS_FILE" \
     "numpy<2" \
     "protobuf<5" \
-    "transformers==4.39.3" \
-    "tokenizers==0.15.2" \
+    "transformers>=4.45.0" \
     "safetensors" \
     "mediapipe==0.10.14" \
     "sageattention" || true
@@ -517,12 +516,6 @@ if [ "$INSTALL_NODE_REQS" = "1" ]; then
         safe_pip_install_req "$req"
       fi
     done
-
-    # Upgrade core dependencies for SeedVR2 (bypasses constraints)
-    if [ -d "${SEEDVR2_REPO_DIR}/.git" ]; then
-      echo "  - [pip] Upgrading transformers and diffusers for SeedVR2 compatibility..."
-      pip install -q --upgrade 'transformers>=4.45.0' 'diffusers>=0.31.0' || true
-    fi
 
     # Process SeedVR2 requirements
     req="${SEEDVR2_REPO_DIR}/requirements.txt"

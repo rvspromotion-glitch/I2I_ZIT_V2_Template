@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     git wget curl aria2 \
     libgl1 libglib2.0-0 \
     ffmpeg \
+    dnsutils iputils-ping net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

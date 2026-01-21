@@ -5,6 +5,50 @@ echo "==================================="
 echo "Starting ComfyUI Setup"
 echo "==================================="
 
+# Fix DNS resolution issues
+echo "[network] Checking DNS configuration..."
+echo "[network] Current /etc/resolv.conf:"
+cat /etc/resolv.conf
+
+# Add Google DNS if not present
+if ! grep -q "8.8.8.8" /etc/resolv.conf 2>/dev/null; then
+  echo "[network] Adding Google DNS to /etc/resolv.conf..."
+  {
+    echo "nameserver 8.8.8.8"
+    echo "nameserver 8.8.4.4"
+    echo "nameserver 1.1.1.1"
+  } >> /etc/resolv.conf
+  echo "[network] Updated /etc/resolv.conf:"
+  cat /etc/resolv.conf
+fi
+
+# Test DNS resolution with multiple methods
+echo "[network] Testing DNS resolution..."
+if command -v nslookup >/dev/null 2>&1; then
+  if nslookup pypi.org >/dev/null 2>&1; then
+    echo "[network] DNS resolution working (nslookup test passed)"
+  else
+    echo "[network] WARNING: nslookup test failed"
+  fi
+fi
+
+if command -v ping >/dev/null 2>&1; then
+  if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+    echo "[network] Basic connectivity OK (ping 8.8.8.8 successful)"
+  else
+    echo "[network] WARNING: Cannot ping 8.8.8.8"
+  fi
+fi
+
+# Try to resolve pypi.org using getent
+if command -v getent >/dev/null 2>&1; then
+  if getent hosts pypi.org >/dev/null 2>&1; then
+    echo "[network] DNS working (getent hosts pypi.org successful)"
+  else
+    echo "[network] WARNING: getent hosts pypi.org failed"
+  fi
+fi
+
 COMFY_DIR="${COMFYUI_PATH:-/workspace/ComfyUI}"
 CUSTOM_NODES="${COMFY_DIR}/custom_nodes"
 MODELS_DIR="${COMFY_DIR}/models"
@@ -75,14 +119,39 @@ PY
 
 if [ "$SKIP_PIP_INSTALL" = "0" ]; then
   echo "[pip] Installing/updating core dependencies..."
-  pip install -q --upgrade --prefer-binary \
-    -c "$CONSTRAINTS_FILE" \
-    "numpy<2" \
-    "protobuf<5" \
-    "transformers>=4.45.0" \
-    "safetensors" \
-    "mediapipe==0.10.14" \
-    "sageattention" || true
+
+  # Retry pip install up to 3 times with exponential backoff
+  MAX_RETRIES=3
+  RETRY_COUNT=0
+  RETRY_DELAY=5
+
+  while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    echo "[pip] Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES..."
+
+    if pip install -q --upgrade --prefer-binary \
+      --retries 5 \
+      --timeout 60 \
+      -c "$CONSTRAINTS_FILE" \
+      "numpy<2" \
+      "protobuf<5" \
+      "transformers>=4.45.0" \
+      "safetensors" \
+      "mediapipe==0.10.14" \
+      "sageattention"; then
+      echo "[pip] Core dependencies installed successfully"
+      break
+    else
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+        echo "[pip] Install failed, retrying in ${RETRY_DELAY}s..."
+        sleep $RETRY_DELAY
+        RETRY_DELAY=$((RETRY_DELAY * 2))
+      else
+        echo "[pip] WARNING: Failed to install some dependencies after $MAX_RETRIES attempts"
+        echo "[pip] Continuing anyway - some features may not work"
+      fi
+    fi
+  done
 else
   echo "[pip] Core dependencies already correct, skipping install"
 fi
@@ -270,8 +339,25 @@ safe_pip_install_req() {
   tmpreq="$(mktemp)"
   grep -viE '^(torch|torchvision|torchaudio|numpy|transformers|tokenizers|protobuf)([<=> ].*)?$' "$req" > "$tmpreq" || true
 
-  pip install -q --prefer-binary -c "$CONSTRAINTS_FILE" -r "$tmpreq" || true
+  # Retry with exponential backoff
+  local retries=3
+  local delay=2
+  for ((i=1; i<=retries; i++)); do
+    if pip install -q --prefer-binary --retries 5 --timeout 60 \
+      -c "$CONSTRAINTS_FILE" -r "$tmpreq"; then
+      rm -f "$tmpreq"
+      return 0
+    fi
+    if [ $i -lt $retries ]; then
+      echo "  [pip] Retry $i/$retries failed, waiting ${delay}s..."
+      sleep $delay
+      delay=$((delay * 2))
+    fi
+  done
+
+  echo "  [pip] WARNING: Failed to install requirements from $req"
   rm -f "$tmpreq"
+  return 0
 }
 
 # -----------------------------
@@ -530,8 +616,11 @@ if [ "$INSTALL_NODE_REQS" = "1" ]; then
   fi
 fi
 
-# Final safety
-pip install -q --upgrade --prefer-binary -c "$CONSTRAINTS_FILE" "numpy<2" "mediapipe==0.10.14" || true
+# Final safety - ensure critical packages are correct
+echo "[pip] Final safety check for critical packages..."
+pip install -q --upgrade --prefer-binary --retries 5 --timeout 60 \
+  -c "$CONSTRAINTS_FILE" "numpy<2" "mediapipe==0.10.14" || \
+  echo "[pip] WARNING: Final safety check failed, continuing anyway"
 
 # -----------------------------
 # Start JupyterLab in background

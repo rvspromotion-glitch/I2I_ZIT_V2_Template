@@ -418,7 +418,7 @@ for dir in "${SAVEZIP_REPO_DIR}"/*; do
 done
 
 # Link SeedVR2 directly (it's a single node pack, not a collection)
-ln -sfn "${SEEDVR2_REPO_DIR}" "${CUSTOM_NODES}/seedvr2_videoupscaler"
+ln -sfn "${SEEDVR2_REPO_DIR}" "${CUSTOM_NODES}/$(basename "${SEEDVR2_REPO_DIR}")"
 
 # Sync bbox models
 BBOX_DIR="${MODELS_DIR}/ultralytics/bbox"

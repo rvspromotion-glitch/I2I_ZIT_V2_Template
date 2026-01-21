@@ -518,6 +518,12 @@ if [ "$INSTALL_NODE_REQS" = "1" ]; then
       fi
     done
 
+    # Upgrade core dependencies for SeedVR2 (bypasses constraints)
+    if [ -d "${SEEDVR2_REPO_DIR}/.git" ]; then
+      echo "  - [pip] Upgrading transformers and diffusers for SeedVR2 compatibility..."
+      pip install -q --upgrade 'transformers>=4.45.0' 'diffusers>=0.31.0' || true
+    fi
+
     # Process SeedVR2 requirements
     req="${SEEDVR2_REPO_DIR}/requirements.txt"
     if [ -f "$req" ]; then

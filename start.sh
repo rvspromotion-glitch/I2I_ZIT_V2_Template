@@ -49,6 +49,25 @@ if command -v getent >/dev/null 2>&1; then
   fi
 fi
 
+# Wait for network to be ready before continuing (critical for RunPod timing issues)
+echo "[network] Waiting for network readiness..."
+MAX_WAIT=30
+WAIT_COUNT=0
+while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+  if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1 && \
+     (getent hosts pypi.org >/dev/null 2>&1 || nslookup pypi.org >/dev/null 2>&1); then
+    echo "[network] Network is ready!"
+    break
+  fi
+  WAIT_COUNT=$((WAIT_COUNT + 1))
+  if [ $WAIT_COUNT -lt $MAX_WAIT ]; then
+    echo "[network] Network not ready, waiting... ($WAIT_COUNT/$MAX_WAIT)"
+    sleep 1
+  else
+    echo "[network] WARNING: Network still not ready after ${MAX_WAIT}s, proceeding anyway"
+  fi
+done
+
 COMFY_DIR="${COMFYUI_PATH:-/workspace/ComfyUI}"
 CUSTOM_NODES="${COMFY_DIR}/custom_nodes"
 MODELS_DIR="${COMFY_DIR}/models"
@@ -169,6 +188,11 @@ import transformers
 print("transformers:", transformers.__version__)
 import mediapipe
 print("mediapipe:", getattr(mediapipe, "__version__", "unknown"), "solutions:", hasattr(mediapipe, "solutions"))
+try:
+    import sageattention
+    print("sageattention:", getattr(sageattention, "__version__", "installed (no version)"))
+except ImportError:
+    print("sageattention: NOT INSTALLED")
 PY
 
 # -----------------------------

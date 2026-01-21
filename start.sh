@@ -122,6 +122,15 @@ download() {
     aria2c -c -x 16 -s 16 -k 1M \
       --allow-overwrite=true \
       --file-allocation=none \
+      --max-tries=5 \
+      --retry-wait=3 \
+      --connect-timeout=30 \
+      --timeout=60 \
+      --max-connection-per-server=16 \
+      --min-split-size=1M \
+      --split=16 \
+      --stream-piece-selector=geom \
+      --optimize-concurrent-downloads=true \
       -d "$(dirname "$out")" -o "$(basename "$out")" \
       "$url"
     return 0
@@ -146,14 +155,38 @@ civit_download() {
 
   echo "[civitai] downloading: $out"
 
-  local header=()
-  if [ -n "${CIVITAI_TOKEN:-}" ]; then
-    header+=( -H "Authorization: Bearer ${CIVITAI_TOKEN}" )
-  fi
+  if command -v aria2c >/dev/null 2>&1; then
+    local aria_opts=(
+      -c -x 16 -s 16 -k 1M
+      --allow-overwrite=true
+      --file-allocation=none
+      --max-tries=10
+      --retry-wait=2
+      --connect-timeout=30
+      --timeout=60
+      --max-connection-per-server=16
+      --min-split-size=1M
+      --split=16
+      --stream-piece-selector=geom
+      --optimize-concurrent-downloads=true
+      -d "$(dirname "$out")" -o "$(basename "$out")"
+    )
 
-  curl -L --fail --retry 10 --retry-delay 2 -C - \
-    "${header[@]}" \
-    -o "$out" "$url"
+    if [ -n "${CIVITAI_TOKEN:-}" ]; then
+      aria_opts+=( --header="Authorization: Bearer ${CIVITAI_TOKEN}" )
+    fi
+
+    aria2c "${aria_opts[@]}" "$url"
+  else
+    local header=()
+    if [ -n "${CIVITAI_TOKEN:-}" ]; then
+      header+=( -H "Authorization: Bearer ${CIVITAI_TOKEN}" )
+    fi
+
+    curl -L --fail --retry 10 --retry-delay 2 -C - \
+      "${header[@]}" \
+      -o "$out" "$url"
+  fi
 
   # If we got HTML (login page), delete it so you dont think its a model
   if command -v file >/dev/null 2>&1 && file "$out" | grep -qi "HTML"; then
@@ -195,10 +228,28 @@ env_lora_download() {
     return 0
   fi
 
-  # Dropbox can be picky; use curl with UA + retries + resume
-  curl -L --fail --retry 10 --retry-delay 2 -C - \
-    -A "Mozilla/5.0" \
-    -o "$out" "$url"
+  # Dropbox can be picky; use aria2c or curl with UA + retries + resume
+  if command -v aria2c >/dev/null 2>&1; then
+    aria2c -c -x 16 -s 16 -k 1M \
+      --allow-overwrite=true \
+      --file-allocation=none \
+      --max-tries=10 \
+      --retry-wait=2 \
+      --connect-timeout=30 \
+      --timeout=60 \
+      --max-connection-per-server=16 \
+      --min-split-size=1M \
+      --split=16 \
+      --stream-piece-selector=geom \
+      --optimize-concurrent-downloads=true \
+      --user-agent="Mozilla/5.0" \
+      -d "$(dirname "$out")" -o "$(basename "$out")" \
+      "$url"
+  else
+    curl -L --fail --retry 10 --retry-delay 2 -C - \
+      -A "Mozilla/5.0" \
+      -o "$out" "$url"
+  fi
 
   # Detect HTML instead of a safetensors binary
   if command -v file >/dev/null 2>&1 && file "$out" | grep -qi "HTML"; then
@@ -235,7 +286,8 @@ mkdir -p \
   "${MODELS_DIR}/vae" \
   "${MODELS_DIR}/clip" \
   "${MODELS_DIR}/loras" \
-  "${MODELS_DIR}/checkpoints"
+  "${MODELS_DIR}/checkpoints" \
+  "${MODELS_DIR}/SEEDVR2"
 
 chmod -R 777 "${MODELS_DIR}/loras" || true
 
@@ -249,11 +301,13 @@ ZIT_REPO_DIR="${REPO_CACHE}/IIIIIIII_ZIT_V3"
 ULTRA_REPO_DIR="${REPO_CACHE}/IIIIIIIII_ZIT_V3_Ultralytics"
 BATCHNODE_REPO_DIR="${REPO_CACHE}/BatchnodeI9"
 SAVEZIP_REPO_DIR="${REPO_CACHE}/savezipi9"
+SEEDVR2_REPO_DIR="${REPO_CACHE}/ComfyUI-SeedVR2_VideoUpscaler"
 
 UPDATE_NODES="${UPDATE_NODES:-0}"
 UPDATE_MODELS="${UPDATE_MODELS:-0}"
 UPDATE_BATCHNODE="${UPDATE_BATCHNODE:-0}"
 UPDATE_SAVEZIP="${UPDATE_SAVEZIP:-0}"
+UPDATE_SEEDVR2="${UPDATE_SEEDVR2:-0}"
 
 # Clone/update all repos in parallel
 echo "[repos] Setting up Git repositories in parallel..."
@@ -320,6 +374,21 @@ echo "[repos] Setting up Git repositories in parallel..."
   fi
 ) &
 
+(
+  if [ ! -d "${SEEDVR2_REPO_DIR}/.git" ]; then
+    echo "[nodes] cloning SeedVR2 Video Upscaler into cache (one-time)..."
+    rm -rf "${SEEDVR2_REPO_DIR}"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress \
+      "https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git" \
+      "${SEEDVR2_REPO_DIR}"
+  elif [ "$UPDATE_SEEDVR2" = "1" ]; then
+    echo "[nodes] updating cached SeedVR2 Video Upscaler..."
+    git -C "${SEEDVR2_REPO_DIR}" pull --rebase || true
+  else
+    echo "[nodes] using cached SeedVR2 Video Upscaler (no pull)"
+  fi
+) &
+
 # Wait for all repo operations
 wait
 
@@ -347,6 +416,9 @@ for dir in "${SAVEZIP_REPO_DIR}"/*; do
   case "$node_name" in .git|.github|__pycache__) continue ;; esac
   ln -sfn "$dir" "${CUSTOM_NODES}/${node_name}"
 done
+
+# Link SeedVR2 directly (it's a single node pack, not a collection)
+ln -sfn "${SEEDVR2_REPO_DIR}" "${CUSTOM_NODES}/seedvr2_videoupscaler"
 
 # Sync bbox models
 BBOX_DIR="${MODELS_DIR}/ultralytics/bbox"
@@ -413,9 +485,9 @@ INSTALL_NODE_REQS="${INSTALL_NODE_REQS:-1}"
 REQ_MARK="${PERSIST_DIR}/.node-reqs-installed"
 
 if [ "$INSTALL_NODE_REQS" = "1" ]; then
-  if [ ! -f "$REQ_MARK" ] || [ "$UPDATE_NODES" = "1" ] || [ "$UPDATE_BATCHNODE" = "1" ] || [ "$UPDATE_SAVEZIP" = "1" ]; then
+  if [ ! -f "$REQ_MARK" ] || [ "$UPDATE_NODES" = "1" ] || [ "$UPDATE_BATCHNODE" = "1" ] || [ "$UPDATE_SAVEZIP" = "1" ] || [ "$UPDATE_SEEDVR2" = "1" ]; then
     echo "[pip] Installing node requirements (constrained)..."
-    
+
     # Process ZIT node pack requirements
     for dir in "${ZIT_REPO_DIR}"/*; do
       [ -d "$dir" ] || continue
@@ -425,7 +497,7 @@ if [ "$INSTALL_NODE_REQS" = "1" ]; then
         safe_pip_install_req "$req"
       fi
     done
-    
+
     # Process BatchnodeI9 requirements
     for dir in "${BATCHNODE_REPO_DIR}"/*; do
       [ -d "$dir" ] || continue
@@ -435,7 +507,7 @@ if [ "$INSTALL_NODE_REQS" = "1" ]; then
         safe_pip_install_req "$req"
       fi
     done
-    
+
     # Process Save ZIP I9 requirements
     for dir in "${SAVEZIP_REPO_DIR}"/*; do
       [ -d "$dir" ] || continue
@@ -445,7 +517,14 @@ if [ "$INSTALL_NODE_REQS" = "1" ]; then
         safe_pip_install_req "$req"
       fi
     done
-    
+
+    # Process SeedVR2 requirements
+    req="${SEEDVR2_REPO_DIR}/requirements.txt"
+    if [ -f "$req" ]; then
+      echo "  - [pip] SeedVR2/requirements.txt"
+      safe_pip_install_req "$req"
+    fi
+
     touch "$REQ_MARK"
   else
     echo "[pip] Node requirements already installed (skip)"

@@ -1,4 +1,4 @@
-FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV COMFYUI_PATH=/workspace/ComfyUI
@@ -8,13 +8,12 @@ RUN apt-get update && apt-get install -y \
     git wget curl aria2 \
     libgl1 libglib2.0-0 \
     ffmpeg \
-    dnsutils iputils-ping net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 RUN pip install --no-cache-dir "numpy<2"
-RUN pip install --no-cache-dir xformers --index-url https://download.pytorch.org/whl/cu128
+RUN pip install --no-cache-dir xformers --index-url https://download.pytorch.org/whl/cu124
 
 RUN pip install --no-cache-dir ultralytics
 RUN pip install --no-cache-dir jupyterlab

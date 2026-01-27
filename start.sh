@@ -416,7 +416,7 @@ UPDATE_NODES="${UPDATE_NODES:-0}"
 UPDATE_MODELS="${UPDATE_MODELS:-0}"
 UPDATE_BATCHNODE="${UPDATE_BATCHNODE:-0}"
 UPDATE_SAVEZIP="${UPDATE_SAVEZIP:-0}"
-UPDATE_SEEDVR2="${UPDATE_SEEDVR2:-0}"
+UPDATE_SEEDVR2="${UPDATE_SEEDVR2:-1}"  # Default to 1 to get PyTorch 2.8+ fixes
 
 # Clone/update all repos in parallel
 echo "[repos] Setting up Git repositories in parallel..."
@@ -492,7 +492,8 @@ echo "[repos] Setting up Git repositories in parallel..."
       "${SEEDVR2_REPO_DIR}"
   elif [ "$UPDATE_SEEDVR2" = "1" ]; then
     echo "[nodes] updating cached SeedVR2 Video Upscaler..."
-    git -C "${SEEDVR2_REPO_DIR}" pull --rebase || true
+    git -C "${SEEDVR2_REPO_DIR}" fetch --depth=1 origin main
+    git -C "${SEEDVR2_REPO_DIR}" reset --hard origin/main || true
   else
     echo "[nodes] using cached SeedVR2 Video Upscaler (no pull)"
   fi

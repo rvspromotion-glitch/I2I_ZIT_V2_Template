@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /workspace
 
 RUN pip install --no-cache-dir "numpy<2"
+RUN pip install --no-cache-dir --upgrade triton
 
 RUN pip install --no-cache-dir ultralytics
 RUN pip install --no-cache-dir jupyterlab

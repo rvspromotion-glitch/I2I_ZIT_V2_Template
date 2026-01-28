@@ -19,7 +19,6 @@ RUN pip install --no-cache-dir jupyterlab
 RUN pip install --no-cache-dir sentencepiece
 RUN pip install --no-cache-dir protobuf
 RUN pip install --no-cache-dir mediapipe==0.10.14
-RUN pip install --no-cache-dir sageattention
 
 # Bake ComfyUI into /opt (won't be hidden by /workspace mount)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /opt/ComfyUI && \

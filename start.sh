@@ -111,6 +111,7 @@ protobuf<5
 transformers>=4.45.0
 safetensors
 mediapipe==0.10.14
+sageattention
 EOF
 
 export PIP_CONSTRAINT="$CONSTRAINTS_FILE"
@@ -154,7 +155,8 @@ if [ "$SKIP_PIP_INSTALL" = "0" ]; then
       "protobuf<5" \
       "transformers>=4.45.0" \
       "safetensors" \
-      "mediapipe==0.10.14"; then
+      "mediapipe==0.10.14" \
+      "sageattention"; then
       echo "[pip] Core dependencies installed successfully"
       break
     else

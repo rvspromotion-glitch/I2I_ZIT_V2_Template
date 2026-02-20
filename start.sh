@@ -571,6 +571,8 @@ download "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8m
 
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors" \
   "${MODELS_DIR}/diffusion_models/z_image_turbo_bf16.safetensors" &
+download "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union-2.1-2601-8steps.safetensors" \
+  "${MODELS_DIR}/model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1-2601-8steps.safetensors" &
 download "https://huggingface.co/Comfy-Org/z_image/resolve/main/split_files/diffusion_models/z_image_bf16.safetensors" \
   "${MODELS_DIR}/diffusion_models/z_image_bf16_base.safetensors" &
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors" \

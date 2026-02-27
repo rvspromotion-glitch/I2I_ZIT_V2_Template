@@ -261,6 +261,7 @@ civit_download() {
       --split=16
       --stream-piece-selector=geom
       --optimize-concurrent-downloads=true
+      --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       -d "$(dirname "$out")" -o "$(basename "$out")"
     )
 
@@ -276,6 +277,7 @@ civit_download() {
     fi
 
     curl -L --fail --retry 10 --retry-delay 2 -C - \
+      -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
       "${header[@]}" \
       -o "$out" "$url"
   fi

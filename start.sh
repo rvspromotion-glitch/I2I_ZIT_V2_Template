@@ -75,6 +75,12 @@ MODELS_DIR="${COMFY_DIR}/models"
 # Persistent RunPod volume (set RUNPOD_VOLUME in template if you want)
 PERSIST_DIR="${RUNPOD_VOLUME:-/workspace/runpod-slim}"
 
+# Map RunPod secret to CIVITAI_TOKEN if not already set
+if [ -z "${CIVITAI_TOKEN:-}" ] && [ -n "${RUNPOD_SECRET_CivitKey:-}" ]; then
+  export CIVITAI_TOKEN="${RUNPOD_SECRET_CivitKey}"
+  echo "[config] Using RunPod CivitAI API key"
+fi
+
 # Optional baked fallback (if /workspace is a mounted empty volume)
 BAKED_DIR="${COMFYUI_BAKED:-/opt/ComfyUI}"
 
@@ -261,6 +267,7 @@ civit_download() {
       --split=16
       --stream-piece-selector=geom
       --optimize-concurrent-downloads=true
+      --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       -d "$(dirname "$out")" -o "$(basename "$out")"
     )
 
@@ -276,6 +283,7 @@ civit_download() {
     fi
 
     curl -L --fail --retry 10 --retry-delay 2 -C - \
+      -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
       "${header[@]}" \
       -o "$out" "$url"
   fi

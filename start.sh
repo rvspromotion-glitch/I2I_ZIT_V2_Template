@@ -254,6 +254,20 @@ civit_download() {
   echo "[civitai] downloading: $out"
 
   if command -v aria2c >/dev/null 2>&1; then
+    # If we have a token, get the signed redirect URL first (R2 signed URLs fail with extra headers)
+    local download_url="$url"
+    if [ -n "${CIVITAI_TOKEN:-}" ]; then
+      echo "[civitai] Getting signed download URL..."
+      download_url=$(curl -sL -I -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+        -H "Authorization: Bearer ${CIVITAI_TOKEN}" \
+        "$url" | grep -i "^location:" | tail -1 | sed 's/^location: //i' | tr -d '\r\n')
+
+      if [ -z "$download_url" ]; then
+        echo "[civitai] Failed to get redirect URL, using original"
+        download_url="$url"
+      fi
+    fi
+
     local aria_opts=(
       -c -x 16 -s 16 -k 1M
       --allow-overwrite=true
@@ -271,11 +285,7 @@ civit_download() {
       -d "$(dirname "$out")" -o "$(basename "$out")"
     )
 
-    if [ -n "${CIVITAI_TOKEN:-}" ]; then
-      aria_opts+=( --header="Authorization: Bearer ${CIVITAI_TOKEN}" )
-    fi
-
-    aria2c "${aria_opts[@]}" "$url"
+    aria2c "${aria_opts[@]}" "$download_url"
   else
     local header=()
     if [ -n "${CIVITAI_TOKEN:-}" ]; then

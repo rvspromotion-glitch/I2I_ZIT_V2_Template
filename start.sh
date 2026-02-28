@@ -599,6 +599,8 @@ download "https://huggingface.co/ai-toolkit/flux2_vae/resolve/main/ae.safetensor
   "${MODELS_DIR}/vae/ae2.safetensors" &
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors" \
   "${MODELS_DIR}/clip/qwen_3_4b.safetensors" &
+download "https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-9b/resolve/main/split_files/text_encoders/qwen_3_8b_fp4mixed.safetensors" \
+  "${MODELS_DIR}/clip/qwen_3_8b_fp4mixed.safetensors" &
 
 civit_download "https://civitai.com/api/download/models/1511445?type=Model&format=SafeTensor" \
   "${MODELS_DIR}/loras/1511445_Spread i5XL.safetensors" &

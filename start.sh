@@ -595,6 +595,8 @@ download "https://huggingface.co/Comfy-Org/z_image/resolve/main/split_files/diff
   "${MODELS_DIR}/diffusion_models/z_image_bf16_base.safetensors" &
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors" \
   "${MODELS_DIR}/vae/ae.safetensors" &
+download "https://huggingface.co/ai-toolkit/flux2_vae/resolve/main/ae.safetensors" \
+  "${MODELS_DIR}/vae/ae2.safetensors" &
 download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors" \
   "${MODELS_DIR}/clip/qwen_3_4b.safetensors" &
 

@@ -608,6 +608,8 @@ civit_download "https://civitai.com/api/download/models/2435561?type=Model&forma
   "${MODELS_DIR}/checkpoints/2435561_Photo4_fp16_pruned.safetensors" &
 civit_download "https://civitai.com/api/download/models/2658598?type=Model&format=SafeTensor&size=pruned&fp=fp8" \
   "${MODELS_DIR}/checkpoints/2658598_fp8_pruned.safetensors" &
+civit_download "https://civitai.com/api/download/models/2631758?type=Model&format=SafeTensor&size=pruned&fp=bf16" \
+  "${MODELS_DIR}/checkpoints/flux_klein_true_bf16.safetensors" &
 
 env_lora_download "CHAR_LORA_URL" &
 

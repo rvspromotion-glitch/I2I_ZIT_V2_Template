@@ -610,6 +610,12 @@ civit_download "https://civitai.com/api/download/models/2658598?type=Model&forma
   "${MODELS_DIR}/checkpoints/2658598_fp8_pruned.safetensors" &
 civit_download "https://civitai.com/api/download/models/2631758?type=Model&format=SafeTensor&size=pruned&fp=bf16" \
   "${MODELS_DIR}/checkpoints/flux_klein_true_bf16.safetensors" &
+civit_download "https://civitai.com/api/download/models/2486059?type=Model&format=SafeTensor" \
+  "${MODELS_DIR}/loras/chinesepussylora_zit.safetensors" &
+civit_download "https://civitai.com/api/download/models/2740476?type=Model&format=SafeTensor" \
+  "${MODELS_DIR}/loras/pussy_and_nipple_zit.safetensors" &
+
+https://civitai.com/api/download/models/2740476?type=Model&format=SafeTensor
 
 env_lora_download "CHAR_LORA_URL" &
 

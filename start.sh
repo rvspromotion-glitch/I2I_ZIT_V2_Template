@@ -616,6 +616,8 @@ civit_download "https://civitai.com/api/download/models/2740476?type=Model&forma
   "${MODELS_DIR}/loras/pussy_and_nipple_zit.safetensors" &
 civit_download "https://civitai.com/api/download/models/2716480?type=Model&format=SafeTensor&size=full&fp=bf16" \
   "${MODELS_DIR}/checkpoints/flux_klein_nsfw_bf16.safetensors" &
+civit_download "https://civitai.com/api/download/models/2695876?type=Model&format=SafeTensor" \
+  "${MODELS_DIR}/loras/flux_klein_SNOFS(sex).safetensors" &
 
 download "https://www.dropbox.com/scl/fi/bpy59kx1rifja25fgu8wk/klein-deepthroat-15epoc-k3nk.safetensors?rlkey=nc17yccdhd5re0v2wabstzgny&st=idy6nn3v&dl=1" \
   "${MODELS_DIR}/loras/klein-deepthroat.safetensors" &

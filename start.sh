@@ -614,9 +614,20 @@ civit_download "https://civitai.com/api/download/models/2486059?type=Model&forma
   "${MODELS_DIR}/loras/chinesepussylora_zit.safetensors" &
 civit_download "https://civitai.com/api/download/models/2740476?type=Model&format=SafeTensor" \
   "${MODELS_DIR}/loras/pussy_and_nipple_zit.safetensors" &
+civit_download "https://civitai.com/api/download/models/2716480?type=Model&format=SafeTensor&size=full&fp=bf16" \
+  "${MODELS_DIR}/checkpoints/flux_klein_nsfw_bf16.safetensors" &
 
-https://civitai.com/api/download/models/2740476?type=Model&format=SafeTensor
-
+download "https://www.dropbox.com/scl/fi/bpy59kx1rifja25fgu8wk/klein-deepthroat-15epoc-k3nk.safetensors?rlkey=nc17yccdhd5re0v2wabstzgny&st=idy6nn3v&dl=1" \
+  "${MODELS_DIR}/loras/klein-deepthroat.safetensors" &
+download "https://www.dropbox.com/scl/fi/90y60t9sxlut79ji5mg0r/klein-missionary-pov-13epoc-k3nk.safetensors?rlkey=t6mj9kbef3t3szuruorkx3ajh&st=wgzs6jd3&dl=1" \
+  "${MODELS_DIR}/loras/klein-missionary-pov.safetensors" &
+download "https://www.dropbox.com/scl/fi/09771xuqruwy6d8yol29w/SelfFisting_Anal_v1.safetensors?rlkey=qaqii1gvdfr99m2s2qhtbp6ox&st=mwoek47d&dl=1" \
+  "${MODELS_DIR}/loras/klein-SelfFisting_Anal_v1.safetensors" &
+download "https://www.dropbox.com/scl/fi/wpczdlrftcwujkl80nulr/SelfFisting_Vaginal_v1.safetensors?rlkey=6nqgjmd1emfqenbwydyv0n4xn&st=cod9hlgn&dl=1" \
+  "${MODELS_DIR}/loras/klein-SelfFisting_Vaginal_v1.safetensors" &
+download "https://www.dropbox.com/scl/fi/chhfxe0aeg81mykvp62vk/SEXGOD_FemaleMasturbation_Klein9b_v1.safetensors?rlkey=86lsezwjnwb05zdw5cmig75bt&st=gtrd5gmr&dl=1" \
+  "${MODELS_DIR}/loras/klein-Female_Masturbation.safetensors" &
+  
 env_lora_download "CHAR_LORA_URL" &
 
 # Wait for ALL downloads to complete

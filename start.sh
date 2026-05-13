@@ -601,7 +601,9 @@ download "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_file
   "${MODELS_DIR}/clip/qwen_3_4b.safetensors" &
 download "https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-9b/resolve/main/split_files/text_encoders/qwen_3_8b_fp4mixed.safetensors" \
   "${MODELS_DIR}/clip/qwen_3_8b_fp4mixed.safetensors" &
-
+download "https://huggingface.co/wikeeyang/Flux2-Klein-9B-True-V2/resolve/main/Flux2-Klein-9B-True-v2-bf16.safetensors" \
+  "${MODELS_DIR}/checkpoints/Flux2-Klein-9B-True-v2-bf16.safetensors" &
+  
 civit_download "https://civitai.com/api/download/models/1511445?type=Model&format=SafeTensor" \
   "${MODELS_DIR}/loras/1511445_Spread i5XL.safetensors" &
 civit_download "https://civitai.com/api/download/models/2435561?type=Model&format=SafeTensor&size=pruned&fp=fp16" \
